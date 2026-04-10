@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>CleanFlow - Thai Edition</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+        <script
+            src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <script
+            src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body
+        class="max-w-md mx-auto min-h-screen pb-32 transition-colors duration-300">
+        <div id="emoji-container"
+            class="fixed inset-0 pointer-events-none z-[100]"></div>
+
+        <header class="p-8 pt-12 flex justify-between items-start">
+            <div>
+                <p
+                    class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">ยอดเงินคงเหลือ</p>
+                <h1 id="mainBalance"
+                    class="text-5xl font-inter font-black tracking-tighter">0.00</h1>
+            </div>
+            <button onclick="toggleDarkMode()"
+                class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                <i id="darkIcon"
+                    class="fa-solid fa-moon text-slate-600 dark:text-yellow-400 text-xl"></i>
+            </button>
+        </header>
+
+        <main class="px-6">
+            <section id="page-add" class="page active">
+                <div class="space-y-6">
+                    <div
+                        class="flex bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl">
+                        <button onclick="setType('expense')" id="btnExp"
+                            class="flex-1 py-4 rounded-xl font-bold text-sm">รายจ่าย</button>
+                        <button onclick="setType('income')" id="btnInc"
+                            class="flex-1 py-4 rounded-xl font-bold text-sm">รายรับ</button>
+                    </div>
+                    <div class="space-y-4">
+                        <input type="hidden" id="editId">
+                        <select id="categorySelect"
+                            class="input-clean font-bold"></select>
+                        <input id="amountInput" type="number" placeholder="0.00"
+                            class="input-clean text-4xl font-inter font-black">
+                        <input id="noteInput" type="text"
+                            placeholder="บันทึก..."
+                            class="input-clean text-sm opacity-60">
+                        <button id="saveBtn" onclick="saveTransaction()"
+                            class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-bold active:scale-95 transition-all">บันทึกข้อมูล</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-daily" class="page space-y-4">
+                <div class="glass-card">
+                    <p
+                        class="text-[10px] font-black opacity-30 mb-4 text-center uppercase">สัดส่วนตามหมวดหมู่
+                        (รวม)</p>
+                    <canvas id="dailyChart" style="max-height: 280px;"></canvas>
+                </div>
+                <div id="dailyList" class="space-y-1"></div>
+            </section>
+
+            <section id="page-stats" class="page space-y-4">
+                <div class="flex justify-between items-center px-2">
+                    <h2
+                        class="text-xs font-black opacity-30 uppercase">วิเคราะห์รายเดือน</h2>
+                    <input type="month" id="monthPicker"
+                        onchange="renderStats()"
+                        class="bg-transparent text-[10px] font-bold border-none outline-none text-indigo-500">
+                </div>
+                <div id="statsSummary" class="grid grid-cols-2 gap-3"></div>
+                <div class="glass-card">
+                    <canvas id="statsChart" style="max-height: 220px;"></canvas>
+                </div>
+                <div id="statsList" class="space-y-1"></div>
+            </section>
+        </main>
+
+        <nav
+            class="fixed bottom-6 left-6 right-6 bg-[#1e293b] rounded-[40px] p-2 flex justify-around items-center z-50 shadow-2xl">
+            <button onclick="showPage('page-add', this)"
+                class="nav-btn nav-active"><i
+                    class="fa-solid fa-house"></i><span>หน้าแรก</span></button>
+            <button onclick="showPage('page-daily', this)" class="nav-btn"><i
+                    class="fa-solid fa-receipt"></i><span>ประวัติ</span></button>
+            <button onclick="showPage('page-stats', this)" class="nav-btn"><i
+                    class="fa-solid fa-chart-line"></i><span>วิเคราะห์</span></button>
+        </nav>
+
+        <script src="app.js"></script>
+    </body>
+</html>
