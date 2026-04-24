@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Anuphan:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Anuphan:wght@400;700;900&display=swap');
 
 :root {
     --bg: #ffffff;
@@ -7,10 +7,12 @@
     --border: #f1f5f9;
 }
 
+/* ตั้งค่าสีเมื่อมี Class .dark */
+html.dark,
 body.dark {
     --bg: #000000;
-    --text: #f8fafc;
-    --card: #111111;
+    --text: #ffffff;
+    --card: #121212;
     --border: #1a1a1a;
 }
 
@@ -18,32 +20,37 @@ body {
     background-color: var(--bg);
     color: var(--text);
     font-family: 'Anuphan', sans-serif;
-    transition: 0.3s;
+    transition: background-color 0.3s, color 0.3s;
+    overflow-x: hidden;
 }
 
 .font-inter {
     font-family: 'Inter', sans-serif;
 }
 
+/* ระบบหน้า Page */
 .page {
     display: none;
 }
 
 .page.active {
     display: block;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
     from {
         opacity: 0;
+        transform: translateY(10px);
     }
 
     to {
         opacity: 1;
+        transform: translateY(0);
     }
 }
 
+/* สไตล์ที่คุณออกแบบไว้ */
 .glass-card {
     background-color: var(--card);
     border-radius: 30px;
@@ -59,34 +66,6 @@ body {
     border: 1px solid var(--border);
     color: inherit;
     outline: none;
-}
-
-.nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: #94a3b8;
-    background: none;
-    border: none;
-    transition: 0.3s;
-    width: 75px;
-}
-
-.nav-btn i {
-    font-size: 18px;
-}
-
-.nav-btn span {
-    font-size: 9px;
-    font-weight: 800;
-}
-
-.nav-active {
-    color: #ffffff !important;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 8px 0;
 }
 
 .stat-box {
@@ -107,4 +86,15 @@ body {
     font-family: 'Inter';
     font-weight: 900;
     font-size: 18px;
+}
+
+/* ซ่อน Scrollbar */
+::-webkit-scrollbar {
+    display: none;
+}
+
+/* ปรับสี Dropdown โหมดมืด */
+.dark select option {
+    background-color: #121212;
+    color: white;
 }
