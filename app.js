@@ -8,160 +8,152 @@ const firebaseConfig = {
     messagingSenderId: "791711191329",
     appId: "1:791711191329:web:0a4ba03cd5f11eb71bae60"
 };
-firebase.initializeApp(firebaseConfig);
+
+// ตรวจสอบการ Initialize ป้องกันการประกาศซ้ำ
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
 const db = firebase.database();
+
+// --- ส่วนสำคัญ: ทำให้ข้อมูลไม่หายและใช้งานออฟไลน์ได้ ---
+// 1. บังคับให้ดึงข้อมูลจากเครื่องก่อน (ถ้าเคยโหลดไว้แล้ว)
+db.ref('money_flow').keepSynced(true);
 
 let currentType = 'expense', transactions = [], dailyChart, statsChart;
 
 // หมวดหมู่และสีประจำหมวดหมู่
-const categories = ['อาหาร', 'เดินทาง', 'ช้อปปิ้ง', 'บ้าน', 'เงินเดือน', 'True Money Wallet' , 'อื่นๆ'];
-const catColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4'];
+const categories = ['อาหาร', 'เดินทาง', 'ช้อปปิ้ง', 'บ้าน', 'เงินเดือน', 'True Money Wallet', 'อื่นๆ'];
+const catColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#4ade80'];
 
 // --- 2. Core Functions ---
 function toggleDarkMode() {
     document.body.classList.toggle('dark');
     const isDark = document.body.classList.contains('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    document.getElementById('darkIcon').className = isDark ? 'fa-solid fa-sun text-yellow-400' : 'fa-solid fa-moon text-slate-600';
-    updateUI();
-    if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
-}
-if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
-
-function setType(t) {
-    currentType = t;
-    updateUI();
+    document.getElementById('darkIcon').className = isDark ? 'fa-solid fa-sun text-yellow-400 text-xl' : 'fa-solid fa-moon text-slate-600 text-xl';
 }
 
-function saveTransaction() {
-    const amt = parseFloat(document.getElementById('amountInput').value);
-    if (!amt) return;
-    const id = document.getElementById('editId').value || Date.now();
-    db.ref('money_flow/' + id).set({
-        id, cat: document.getElementById('categorySelect').value,
-        note: document.getElementById('noteInput').value,
-        amount: currentType === 'expense' ? -amt : amt,
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    }).then(() => {
-        document.getElementById('amountInput').value = '';
-        document.getElementById('noteInput').value = '';
-        document.getElementById('editId').value = '';
-        document.getElementById('saveBtn').innerText = 'บันทึกข้อมูล';
-    });
+function setType(type) {
+    currentType = type;
+    const isExp = type === 'expense';
+    document.getElementById('btnExp').className = isExp ? 'flex-1 py-4 rounded-xl font-bold text-sm bg-white dark:bg-zinc-800 shadow-sm' : 'flex-1 py-4 rounded-xl font-bold text-sm opacity-40';
+    document.getElementById('btnInc').className = !isExp ? 'flex-1 py-4 rounded-xl font-bold text-sm bg-white dark:bg-zinc-800 shadow-sm' : 'flex-1 py-4 rounded-xl font-bold text-sm opacity-40';
 }
 
-db.ref('money_flow').on('value', s => {
-    transactions = s.val() ? Object.values(s.val()) : [];
-    updateUI();
+// --- 3. Database Listener ---
+// ดึงข้อมูลแบบ Real-time และจะทำงานทันทีแม้ไม่มีเน็ต (ถ้ามีข้อมูลแคช)
+db.ref('money_flow').on('value', snapshot => {
+    const data = snapshot.val();
+    transactions = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
+
+    // เรียงลำดับวันที่ล่าสุดขึ้นก่อน
+    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    updateBalance();
     if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
     if (document.getElementById('page-stats').classList.contains('active')) renderStats();
 });
 
-function updateUI() {
-    const total = transactions.reduce((s, t) => s + t.amount, 0);
+function updateBalance() {
+    const total = transactions.reduce((sum, t) => sum + t.amount, 0);
     document.getElementById('mainBalance').innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-    const isDark = document.body.classList.contains('dark');
-    const activeClass = isDark ? 'bg-zinc-800' : 'bg-white shadow-sm';
-    document.getElementById('btnExp').className = `flex-1 py-4 rounded-xl font-bold text-sm transition-all ${currentType === 'expense' ? activeClass + ' text-rose-500' : 'text-slate-400'}`;
-    document.getElementById('btnInc').className = `flex-1 py-4 rounded-xl font-bold text-sm transition-all ${currentType === 'income' ? activeClass + ' text-emerald-500' : 'text-slate-400'}`;
 }
 
-// --- หน้า 2: LOG (กราฟวงกลมพร้อมชื่อหมวดหมู่) ---
+function saveTransaction() {
+    const amt = parseFloat(document.getElementById('amountInput').value);
+    const note = document.getElementById('noteInput').value;
+    const cat = document.getElementById('categorySelect').value;
+    const id = document.getElementById('editId').value;
+
+    if (!amt) return Swal.fire('กรุณาระบุจำนวนเงิน', '', 'warning');
+
+    const data = {
+        amount: currentType === 'expense' ? -Math.abs(amt) : Math.abs(amt),
+        note,
+        cat,
+        date: new Date().toISOString()
+    };
+
+    if (id) {
+        db.ref('money_flow/' + id).update(data);
+    } else {
+        db.ref('money_flow').push(data);
+    }
+
+    // Reset Form
+    document.getElementById('amountInput').value = '';
+    document.getElementById('noteInput').value = '';
+    document.getElementById('editId').value = '';
+    Swal.fire({ title: 'บันทึกแล้ว', icon: 'success', timer: 1000, showConfirmButton: false });
+}
+
 function renderDaily() {
-    const catSum = {};
-    // รวมทุกอย่าง (รับ/จ่าย) มาโชว์สัดส่วนหมวดหมู่
-    transactions.forEach(t => {
-        catSum[t.cat] = (catSum[t.cat] || 0) + Math.abs(t.amount);
-    });
+    const today = new Date().toISOString().split('T')[0];
+    const todayTrans = transactions.filter(t => t.date.startsWith(today));
 
-    const labels = Object.keys(catSum);
-    const backgroundColors = labels.map(l => catColors[categories.indexOf(l)]);
+    // สรุปข้อมูลสำหรับกราฟวงกลม
+    const summary = {};
+    categories.forEach(c => summary[c] = 0);
+    todayTrans.forEach(t => { if (t.amount < 0) summary[t.cat] += Math.abs(t.amount); });
 
-    const ctx = document.getElementById('dailyChart').getContext('2d');
     if (dailyChart) dailyChart.destroy();
+    const ctx = document.getElementById('dailyChart').getContext('2d');
     dailyChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: labels,
-            datasets: [{ data: Object.values(catSum), backgroundColor: backgroundColors, borderWidth: 0 }]
+            labels: categories,
+            datasets: [{ data: Object.values(summary), backgroundColor: catColors, borderWidth: 0 }]
         },
-        options: {
-            cutout: '65%',
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: {
-                        color: document.body.classList.contains('dark') ? '#fff' : '#000',
-                        font: { family: 'Anuphan', size: 12 },
-                        usePointStyle: true,
-                        padding: 15
-                    }
-                }
-            }
-        }
+        options: { plugins: { legend: { display: false } }, cutout: '70%' }
     });
 
-    document.getElementById('dailyList').innerHTML = transactions.slice().reverse().map(t => `
-        <div class="flex justify-between items-center p-5 border-b dark:border-zinc-900 border-slate-50">
-            <div onclick="editItem(${t.id})" class="flex-1">
-                <p class="text-sm font-black">${t.cat}</p>
-                <p class="text-[10px] font-bold opacity-30">${t.date} • ${t.time}</p>
+    document.getElementById('dailyList').innerHTML = todayTrans.map(t => `
+        <div class="flex justify-between items-center p-4 bg-slate-50 dark:bg-zinc-900 rounded-2xl mb-2 active:scale-95 transition-all" onclick="editItem('${t.id}')">
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-8 rounded-full" style="background:${catColors[categories.indexOf(t.cat)]}"></div>
+                <div>
+                    <p class="font-bold text-sm">${t.cat}</p>
+                    <p class="text-[10px] opacity-40">${t.note || '-'}</p>
+                </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="text-right">
                 <p class="font-inter font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}</p>
-                <button onclick="deleteItem(${t.id})" class="text-slate-300 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
+                <button onclick="event.stopPropagation(); deleteItem('${t.id}')" class="text-[10px] text-rose-500 opacity-50">ลบ</button>
             </div>
         </div>`).join('');
 }
 
-// --- หน้า 3: INTEREST (กราฟแท่งแยก รับ/จ่าย + เวลา) ---
 function renderStats() {
-    const month = document.getElementById('monthPicker').value || new Date().toISOString().slice(0, 7);
+    const month = document.getElementById('monthPicker').value; // YYYY-MM
     const filtered = transactions.filter(t => t.date.startsWith(month));
-    const expTotal = Math.abs(filtered.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0));
-    const incTotal = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+
+    const inc = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const exp = filtered.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
     document.getElementById('statsSummary').innerHTML = `
-        <div class="stat-box"><p class="stat-label">รายรับ</p><p class="stat-value text-emerald-500">${incTotal.toLocaleString()}</p></div>
-        <div class="stat-box"><p class="stat-label">รายจ่าย</p><p class="stat-value text-rose-500">${expTotal.toLocaleString()}</p></div>
-    `;
+        <div class="stat-box bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600">
+            <p class="stat-label">รายรับ</p>
+            <p class="stat-value text-emerald-500">${inc.toLocaleString()}</p>
+        </div>
+        <div class="stat-box bg-rose-50 dark:bg-rose-900/20 text-rose-600">
+            <p class="stat-label">รายจ่าย</p>
+            <p class="stat-value text-rose-500">${exp.toLocaleString()}</p>
+        </div>`;
 
-    const incomeData = categories.map(c => filtered.filter(t => t.cat === c && t.amount > 0).reduce((s, t) => s + t.amount, 0));
-    const expenseData = categories.map(c => Math.abs(filtered.filter(t => t.cat === c && t.amount < 0).reduce((s, t) => s + t.amount, 0)));
+    const summary = {};
+    categories.forEach(c => summary[c] = 0);
+    filtered.forEach(t => { if (t.amount < 0) summary[t.cat] += Math.abs(t.amount); });
 
-    const ctx = document.getElementById('statsChart').getContext('2d');
     if (statsChart) statsChart.destroy();
-    statsChart = new Chart(ctx, {
+    statsChart = new Chart(document.getElementById('statsChart'), {
         type: 'bar',
         data: {
             labels: categories,
-            datasets: [
-                { label: 'รายรับ', data: incomeData, backgroundColor: '#10b981', borderRadius: 4 },
-                { label: 'รายจ่าย', data: expenseData, backgroundColor: '#f43f5e', borderRadius: 4 }
-            ]
+            datasets: [{ data: Object.values(summary), backgroundColor: catColors, borderRadius: 8 }]
         },
-        options: {
-            scales: {
-                y: { display: false },
-                x: { ticks: { color: document.body.classList.contains('dark') ? '#ffffff66' : '#00000066', font: { size: 9 } } }
-            },
-            plugins: {
-                legend: { display: true, position: 'top', labels: { color: document.body.classList.contains('dark') ? '#fff' : '#000', font: { size: 10 } } }
-            }
-        }
+        options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
     });
-
-    document.getElementById('statsList').innerHTML = filtered.reverse().map(t => `
-        <div class="flex justify-between items-center py-3 border-b dark:border-zinc-900 border-slate-50">
-            <div>
-                <p class="text-[11px] font-black">${t.cat}</p>
-                <p class="text-[9px] font-bold opacity-30">${t.date} • ${t.time}</p>
-            </div>
-            <span class="font-inter font-black text-[11px] ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}</span>
-        </div>`).join('');
 }
 
 function showPage(id, el) {
@@ -174,7 +166,7 @@ function showPage(id, el) {
 }
 
 function deleteItem(id) {
-    Swal.fire({ title: 'ลบรายการ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#f43f5e' })
+    Swal.fire({ title: 'ลบรายการนี้?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#f43f5e', cancelButtonText: 'ยกเลิก', confirmButtonText: 'ลบเลย' })
         .then(r => { if (r.isConfirmed) db.ref('money_flow/' + id).remove(); });
 }
 
@@ -189,13 +181,19 @@ function editItem(id) {
     setType(t.amount < 0 ? 'expense' : 'income');
 }
 
+// --- 4. Initialization ---
+// ตั้งค่าเริ่มต้น
 document.getElementById('categorySelect').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
 document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
-// ลงทะเบียน Service Worker เพื่อให้แอปทำงานแบบออฟไลน์ได้
+
+// ดึง Theme เดิมจากเครื่อง
+if (localStorage.getItem('theme') === 'dark') toggleDarkMode();
+
+// ลงทะเบียน Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker: Registered'))
-            .catch(err => console.log('Service Worker: Error', err));
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            console.log('SW registered!');
+        }).catch(err => console.log('SW error:', err));
     });
 }
