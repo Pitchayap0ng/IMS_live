@@ -14,7 +14,7 @@ const db = firebase.database();
 let currentType = 'expense', transactions = [], dailyChart, statsChart;
 
 // หมวดหมู่และสีประจำหมวดหมู่
-const categories = ['อาหาร', 'เดินทาง', 'ช้อปปิ้ง', 'บ้าน', 'เงินเดือน', 'อื่นๆ'];
+const categories = ['อาหาร', 'เดินทาง', 'ช้อปปิ้ง', 'บ้าน', 'เงินเดือน', 'True Money Wallet' , 'อื่นๆ'];
 const catColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 // --- 2. Core Functions ---
