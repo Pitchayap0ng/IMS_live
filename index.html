@@ -4,16 +4,26 @@
         <meta charset="UTF-8">
         <meta name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>CleanFlow - Thai Edition</title>
+        <title>CleanFlow - IMS Live</title>
+
+        <meta name="apple-mobile-web-app-title" content="CleanFlow">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style"
+            content="black-translucent">
+        <link rel="apple-touch-icon" href="icon-180.png">
+        <link rel="manifest" href="manifest.json">
+
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
         <script
             src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
         <script
             src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
         <link rel="stylesheet" href="style.css">
     </head>
     <body
@@ -89,12 +99,15 @@
         <nav
             class="fixed bottom-6 left-6 right-6 bg-[#1e293b] rounded-[40px] p-2 flex justify-around items-center z-50 shadow-2xl">
             <button onclick="showPage('page-add', this)"
-                class="nav-btn nav-active"><i
-                    class="fa-solid fa-house"></i><span>หน้าแรก</span></button>
-            <button onclick="showPage('page-daily', this)" class="nav-btn"><i
-                    class="fa-solid fa-receipt"></i><span>ประวัติ</span></button>
-            <button onclick="showPage('page-stats', this)" class="nav-btn"><i
-                    class="fa-solid fa-chart-line"></i><span>วิเคราะห์</span></button>
+                class="nav-btn nav-active">
+                <i class="fa-solid fa-house"></i><span>หน้าแรก</span>
+            </button>
+            <button onclick="showPage('page-daily', this)" class="nav-btn">
+                <i class="fa-solid fa-receipt"></i><span>ประวัติ</span>
+            </button>
+            <button onclick="showPage('page-stats', this)" class="nav-btn">
+                <i class="fa-solid fa-chart-line"></i><span>วิเคราะห์</span>
+            </button>
         </nav>
 
         <script src="app.js"></script>

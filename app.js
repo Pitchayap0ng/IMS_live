@@ -191,3 +191,11 @@ function editItem(id) {
 
 document.getElementById('categorySelect').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
 document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
+// ลงทะเบียน Service Worker เพื่อให้แอปทำงานแบบออฟไลน์ได้
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker: Registered'))
+            .catch(err => console.log('Service Worker: Error', err));
+    });
+}
