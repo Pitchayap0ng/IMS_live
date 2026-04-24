@@ -9,13 +9,13 @@ const firebaseConfig = {
     appId: "1:791711191329:web:0a4ba03cd5f11eb71bae60"
 };
 
-// ป้องกันการ Initialize ซ้ำ
+// ตรวจสอบการ Initialize
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
 
-// เปิด Offline Persistence (ข้อมูลไม่หายแม้ไม่มีเน็ต)
+// เปิด Offline Persistence (หัวใจหลักที่ทำให้ข้อมูลออฟไลน์ไม่หาย)
 db.ref('money_flow').keepSynced(true);
 
 let currentType = 'expense', transactions = [], dailyChart, statsChart;
@@ -69,22 +69,24 @@ function updateBalance() {
     }
 }
 
-// ฟังก์ชันบันทึกข้อมูล (เพิ่มระบบ Check และ Alert ตามคำขอ)
-function saveTransaction() {
+// --- ฟังก์ชันบันทึกข้อมูล (ปรับปรุงใหม่ให้ Alert เด้งแน่นอน) ---
+async function saveTransaction() {
     const amtInput = document.getElementById('amountInput');
     const noteInput = document.getElementById('noteInput');
     const catInput = document.getElementById('categorySelect');
     const editId = document.getElementById('editId').value;
 
-    const amt = parseFloat(amtInput.value);
+    const rawValue = amtInput.value.trim();
+    const amt = parseFloat(rawValue);
 
-    // 1. ถ้าไม่ใส่เงิน หรือใส่เป็น 0 ให้เตือน
-    if (!amt || isNaN(amt)) {
+    // 1. ตรวจสอบว่าใส่เงินหรือยัง (ถ้าไม่ใส่จะเด้งเตือน)
+    if (!rawValue || isNaN(amt) || amt <= 0) {
         return Swal.fire({
             title: 'กรุณาระบุจำนวนเงิน',
-            text: 'คุณยังไม่ได้กรอกจำนวนเงินเลยครับ',
+            text: 'คุณต้องใส่จำนวนเงินที่มากกว่า 0 นะครับ',
             icon: 'warning',
-            confirmButtonColor: '#6366f1'
+            confirmButtonColor: '#6366f1',
+            confirmButtonText: 'เข้าใจแล้ว'
         });
     }
 
@@ -95,26 +97,32 @@ function saveTransaction() {
         date: editId ? (transactions.find(t => t.id === editId)?.date || new Date().toISOString()) : new Date().toISOString()
     };
 
-    if (editId) {
-        db.ref('money_flow/' + editId).update(data);
-    } else {
-        db.ref('money_flow').push(data);
+    try {
+        if (editId) {
+            await db.ref('money_flow/' + editId).update(data);
+        } else {
+            await db.ref('money_flow').push(data);
+        }
+
+        // 2. เมื่อบันทึกสำเร็จ ให้ขึ้นแจ้งเตือนเสร็จสิ้น
+        Swal.fire({
+            title: 'ทำรายการเสร็จสิ้น',
+            text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+            background: document.body.classList.contains('dark') ? '#111' : '#fff',
+            color: document.body.classList.contains('dark') ? '#fff' : '#000'
+        });
+
+        // ล้างฟอร์ม
+        amtInput.value = '';
+        noteInput.value = '';
+        document.getElementById('editId').value = '';
+
+    } catch (error) {
+        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
     }
-
-    // 2. บันทึกเสร็จแล้วให้ขึ้นว่าทำรายการเสร็จสิ้น
-    Swal.fire({
-        title: 'ทำรายการเสร็จสิ้น',
-        icon: 'success',
-        timer: 1200,
-        showConfirmButton: false,
-        background: document.body.classList.contains('dark') ? '#111' : '#fff',
-        color: document.body.classList.contains('dark') ? '#fff' : '#000'
-    });
-
-    // ล้างฟอร์ม
-    amtInput.value = '';
-    noteInput.value = '';
-    document.getElementById('editId').value = '';
 }
 
 function renderDaily() {
@@ -140,7 +148,7 @@ function renderDaily() {
 
     const list = document.getElementById('dailyList');
     if (list) {
-        list.innerHTML = todayTrans.map(t => `
+        list.innerHTML = todayTrans.length ? todayTrans.map(t => `
             <div class="flex justify-between items-center p-4 bg-slate-50 dark:bg-zinc-900 rounded-2xl mb-2 active:scale-95 transition-all" onclick="editItem('${t.id}')">
                 <div class="flex items-center gap-3">
                     <div class="w-1.5 h-8 rounded-full" style="background:${catColors[categories.indexOf(t.cat)]}"></div>
@@ -153,7 +161,7 @@ function renderDaily() {
                     <p class="font-inter font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}</p>
                     <button onclick="event.stopPropagation(); deleteItem('${t.id}')" class="text-[9px] text-rose-500 opacity-50 font-bold uppercase">ลบ</button>
                 </div>
-            </div>`).join('');
+            </div>`).join('') : '<p class="text-center py-10 opacity-30 text-xs">ไม่มีรายการสำหรับวันนี้</p>';
     }
 }
 
@@ -212,15 +220,10 @@ function deleteItem(id) {
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#f43f5e',
-        confirmButtonText: 'ลบเลย',
-        cancelButtonText: 'ยกเลิก',
-        background: document.body.classList.contains('dark') ? '#111' : '#fff',
-        color: document.body.classList.contains('dark') ? '#fff' : '#000'
+        confirmButtonText: 'ลบ',
+        cancelButtonText: 'ยกเลิก'
     }).then(r => {
-        if (r.isConfirmed) {
-            db.ref('money_flow/' + id).remove();
-            Swal.fire({ title: 'ลบเรียบร้อย', icon: 'success', timer: 800, showConfirmButton: false });
-        }
+        if (r.isConfirmed) db.ref('money_flow/' + id).remove();
     });
 }
 
@@ -237,20 +240,19 @@ function editItem(id) {
 
 // --- 4. Initialization ---
 
-const catSelect = document.getElementById('categorySelect');
-if (catSelect) {
-    catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+const catSel = document.getElementById('categorySelect');
+if (catSel) {
+    catSel.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
-const monthPicker = document.getElementById('monthPicker');
-if (monthPicker) {
-    monthPicker.value = new Date().toISOString().slice(0, 7);
+const monPick = document.getElementById('monthPicker');
+if (monPick) {
+    monPick.value = new Date().toISOString().slice(0, 7);
 }
 
 if (localStorage.getItem('theme') === 'dark') toggleDarkMode();
 setType('expense');
 
-// Register Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(err => console.log("SW Error:", err));
