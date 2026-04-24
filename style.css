@@ -7,7 +7,6 @@
     --border: #f1f5f9;
 }
 
-/* ตั้งค่าสีเมื่อมี Class .dark */
 html.dark,
 body.dark {
     --bg: #000000;
@@ -21,14 +20,10 @@ body {
     color: var(--text);
     font-family: 'Anuphan', sans-serif;
     transition: background-color 0.3s, color 0.3s;
+    min-height: 100vh;
     overflow-x: hidden;
 }
 
-.font-inter {
-    font-family: 'Inter', sans-serif;
-}
-
-/* ระบบหน้า Page */
 .page {
     display: none;
 }
@@ -50,50 +45,10 @@ body {
     }
 }
 
-/* สไตล์ที่คุณออกแบบไว้ */
-.glass-card {
-    background-color: var(--card);
-    border-radius: 30px;
-    border: 1px solid var(--border);
-    padding: 20px;
-}
-
-.input-clean {
-    width: 100%;
-    padding: 18px;
-    border-radius: 20px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: inherit;
-    outline: none;
-}
-
-.stat-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 15px;
-    border-radius: 24px;
-    text-align: center;
-}
-
-.stat-label {
-    font-size: 10px;
-    font-weight: bold;
-    opacity: 0.4;
-}
-
-.stat-value {
-    font-family: 'Inter';
-    font-weight: 900;
-    font-size: 18px;
-}
-
-/* ซ่อน Scrollbar */
 ::-webkit-scrollbar {
     display: none;
 }
 
-/* ปรับสี Dropdown โหมดมืด */
 .dark select option {
     background-color: #121212;
     color: white;

@@ -20,7 +20,6 @@ const db = firebase.database();
 
 // --- 2. Core Logic ---
 
-// ฟังข้อมูล Real-time
 db.ref('money_flow').on('value', snap => {
     const data = snap.val();
     transactions = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
@@ -128,14 +127,14 @@ function renderStats() {
 
     const statsList = document.getElementById('statsList');
     if (statsList) {
-        statsList.innerHTML = filtered.length === 0 ? '<p class="text-center py-10 opacity-30 text-xs font-bold uppercase">No data for this month</p>' :
+        statsList.innerHTML = filtered.length === 0 ? '<p class="text-center py-10 opacity-30 text-xs font-bold uppercase">No data</p>' :
             filtered.map(t => `
             <div class="flex justify-between items-center p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800 mb-2">
                 <div class="flex items-center gap-3">
                     <div class="w-1 h-6 rounded-full" style="background:${catColors[categories.indexOf(t.cat)] || '#ccc'}"></div>
                     <div class="leading-tight">
                         <p class="font-bold text-xs text-slate-800 dark:text-white">${t.cat}</p>
-                        <p class="text-[9px] opacity-40">${new Date(t.date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })} • ${t.note}</p>
+                        <p class="text-[9px] opacity-40">${new Date(t.date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</p>
                     </div>
                 </div>
                 <p class="font-black text-xs ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}</p>
@@ -143,17 +142,12 @@ function renderStats() {
     }
 }
 
-// --- 3. UI Helpers ---
-
 function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark');
     document.body.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-
     const icon = document.getElementById('darkIcon');
     if (icon) icon.className = isDark ? 'fa-solid fa-sun text-yellow-400 text-xl' : 'fa-solid fa-moon text-slate-600 text-xl';
-
-    // สำคัญ: อัปเดต UI เพื่อเปลี่ยนสีกราฟตามธีมทันที
     updateUI();
 }
 
@@ -162,7 +156,7 @@ function showPage(id, el) {
     document.getElementById(id).classList.add('active');
     document.querySelectorAll('nav button').forEach(b => b.classList.add('opacity-50'));
     el.classList.remove('opacity-50');
-    updateUI();
+    updateUI(); // แก้จุดนี้: เรียกให้วาดข้อมูลใหม่ทุกครั้งที่สลับหน้า
 }
 
 function setType(type) {
@@ -191,35 +185,27 @@ function editItem(id) {
 function deleteItem(id) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
-        text: "คุณไม่สามารถกู้คืนข้อมูลนี้ได้",
+        text: "ไม่สามารถกู้คืนข้อมูลได้",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#6366f1',
         confirmButtonText: 'ลบรายการนี้',
-        cancelButtonText: 'ยกเลิก',
-        borderRadius: '25px'
+        cancelButtonText: 'ยกเลิก'
     }).then(res => {
         if (res.isConfirmed) db.ref('money_flow/' + id).remove();
     });
 }
 
 window.onload = () => {
-    // โหลดหมวดหมู่
     const catSel = document.getElementById('categorySelect');
     if (catSel) catSel.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
-
-    // ตั้งค่าเดือนปัจจุบัน
     const monPick = document.getElementById('monthPicker');
     if (monPick) monPick.value = new Date().toISOString().slice(0, 7);
-
-    // เช็คธีมจาก LocalStorage
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
         document.body.classList.add('dark');
         const icon = document.getElementById('darkIcon');
         if (icon) icon.className = 'fa-solid fa-sun text-yellow-400 text-xl';
     }
-
     setType('expense');
 };

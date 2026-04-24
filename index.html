@@ -8,7 +8,7 @@
 
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
-        // สำคัญ: ตั้งค่าให้ Tailwind รองรับ Dark Mode ผ่าน Class
+        // ตั้งค่าให้ Tailwind รองรับ Dark Mode ผ่าน Class
         tailwind.config = { darkMode: 'class' }
     </script>
 
@@ -90,14 +90,11 @@
                         onchange="renderStats()"
                         class="bg-transparent font-bold text-indigo-500 border-none outline-none">
                 </div>
-
                 <div
                     class="bg-white dark:bg-zinc-900 p-6 rounded-[35px] border border-slate-50 dark:border-zinc-800 shadow-sm">
                     <canvas id="statsChart" style="max-height: 200px;"></canvas>
                 </div>
-
                 <div id="statsSummary" class="grid grid-cols-2 gap-3"></div>
-
                 <div>
                     <h3
                         class="text-[10px] font-black opacity-30 uppercase mb-3 tracking-widest dark:text-slate-500">รายละเอียดเดือนนี้</h3>
