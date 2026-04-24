@@ -1,4 +1,4 @@
-const cacheName = 'ims-live-v2';
+const cacheName = 'ims-v3';
 const assets = [
     './',
     './index.html',
@@ -13,13 +13,9 @@ const assets = [
 ];
 
 self.addEventListener('install', e => {
-    e.waitUntil(
-        caches.open(cacheName).then(cache => cache.addAll(assets))
-    );
+    e.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets)));
 });
 
 self.addEventListener('fetch', e => {
-    e.respondWith(
-        caches.match(e.request).then(res => res || fetch(e.request))
-    );
+    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
 });
