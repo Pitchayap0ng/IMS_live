@@ -9,24 +9,23 @@ const firebaseConfig = {
     appId: "1:791711191329:web:0a4ba03cd5f11eb71bae60"
 };
 
-// ตรวจสอบการ Initialize ป้องกันการประกาศซ้ำ
+// ป้องกันการ Initialize ซ้ำ
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
 
-// ทำให้ข้อมูลไม่หายและใช้งานออฟไลน์ได้
+// เปิด Offline Persistence (ข้อมูลไม่หายแม้ไม่มีเน็ต)
 db.ref('money_flow').keepSynced(true);
 
 let currentType = 'expense', transactions = [], dailyChart, statsChart;
 
-// หมวดหมู่และสีประจำหมวดหมู่
+// หมวดหมู่และสี
 const categories = ['อาหาร', 'เดินทาง', 'ช้อปปิ้ง', 'บ้าน', 'เงินเดือน', 'True Money Wallet', 'อื่นๆ'];
 const catColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#4ade80'];
 
 // --- 2. Core Functions ---
 
-// ระบบ Dark Mode
 function toggleDarkMode() {
     document.body.classList.toggle('dark');
     const isDark = document.body.classList.contains('dark');
@@ -37,7 +36,6 @@ function toggleDarkMode() {
     }
 }
 
-// เลือก รายรับ/รายจ่าย
 function setType(type) {
     currentType = type;
     const isExp = type === 'expense';
@@ -49,47 +47,42 @@ function setType(type) {
     }
 }
 
-// --- 3. Database & Rendering Logic ---
+// --- 3. Database & UI Rendering ---
 
-// ดึงข้อมูล Real-time จาก Firebase
 db.ref('money_flow').on('value', snapshot => {
     const data = snapshot.val();
     transactions = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
-
-    // เรียงวันที่ล่าสุดขึ้นก่อน
     transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     updateBalance();
 
-    // เช็กว่าอยู่หน้าไหนให้ Render หน้านั้น
     const activePage = document.querySelector('.page.active')?.id;
     if (activePage === 'page-daily') renderDaily();
     if (activePage === 'page-stats') renderStats();
 });
 
-// อัปเดตยอดคงเหลือ
 function updateBalance() {
     const total = transactions.reduce((sum, t) => sum + t.amount, 0);
-    const balanceEl = document.getElementById('mainBalance');
-    if (balanceEl) {
-        balanceEl.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    const mainBal = document.getElementById('mainBalance');
+    if (mainBal) {
+        mainBal.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     }
 }
 
-// ฟังก์ชันบันทึกข้อมูล (ใช้ SweetAlert2)
+// ฟังก์ชันบันทึกข้อมูล (เพิ่มระบบ Check และ Alert ตามคำขอ)
 function saveTransaction() {
     const amtInput = document.getElementById('amountInput');
     const noteInput = document.getElementById('noteInput');
-    const catSelect = document.getElementById('categorySelect');
+    const catInput = document.getElementById('categorySelect');
     const editId = document.getElementById('editId').value;
 
     const amt = parseFloat(amtInput.value);
 
-    // SweetAlert2 แจ้งเตือนเมื่อลืมใส่จำนวนเงิน
-    if (!amt) {
+    // 1. ถ้าไม่ใส่เงิน หรือใส่เป็น 0 ให้เตือน
+    if (!amt || isNaN(amt)) {
         return Swal.fire({
-            title: 'ระบุจำนวนเงิน',
-            text: 'กรุณาใส่จำนวนเงินก่อนบันทึกนะ',
+            title: 'กรุณาระบุจำนวนเงิน',
+            text: 'คุณยังไม่ได้กรอกจำนวนเงินเลยครับ',
             icon: 'warning',
             confirmButtonColor: '#6366f1'
         });
@@ -98,7 +91,7 @@ function saveTransaction() {
     const data = {
         amount: currentType === 'expense' ? -Math.abs(amt) : Math.abs(amt),
         note: noteInput.value || '',
-        cat: catSelect.value,
+        cat: catInput.value,
         date: editId ? (transactions.find(t => t.id === editId)?.date || new Date().toISOString()) : new Date().toISOString()
     };
 
@@ -108,23 +101,22 @@ function saveTransaction() {
         db.ref('money_flow').push(data);
     }
 
-    // ล้างค่าในฟอร์ม
-    amtInput.value = '';
-    noteInput.value = '';
-    document.getElementById('editId').value = '';
-
-    // SweetAlert2 แจ้งเตือนสำเร็จ
+    // 2. บันทึกเสร็จแล้วให้ขึ้นว่าทำรายการเสร็จสิ้น
     Swal.fire({
-        title: 'บันทึกสำเร็จ!',
+        title: 'ทำรายการเสร็จสิ้น',
         icon: 'success',
-        timer: 1000,
+        timer: 1200,
         showConfirmButton: false,
         background: document.body.classList.contains('dark') ? '#111' : '#fff',
         color: document.body.classList.contains('dark') ? '#fff' : '#000'
     });
+
+    // ล้างฟอร์ม
+    amtInput.value = '';
+    noteInput.value = '';
+    document.getElementById('editId').value = '';
 }
 
-// หน้าประวัติ (กราฟวงกลม)
 function renderDaily() {
     const today = new Date().toISOString().split('T')[0];
     const todayTrans = transactions.filter(t => t.date.startsWith(today));
@@ -148,7 +140,7 @@ function renderDaily() {
 
     const list = document.getElementById('dailyList');
     if (list) {
-        list.innerHTML = todayTrans.length ? todayTrans.map(t => `
+        list.innerHTML = todayTrans.map(t => `
             <div class="flex justify-between items-center p-4 bg-slate-50 dark:bg-zinc-900 rounded-2xl mb-2 active:scale-95 transition-all" onclick="editItem('${t.id}')">
                 <div class="flex items-center gap-3">
                     <div class="w-1.5 h-8 rounded-full" style="background:${catColors[categories.indexOf(t.cat)]}"></div>
@@ -161,15 +153,13 @@ function renderDaily() {
                     <p class="font-inter font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}</p>
                     <button onclick="event.stopPropagation(); deleteItem('${t.id}')" class="text-[9px] text-rose-500 opacity-50 font-bold uppercase">ลบ</button>
                 </div>
-            </div>`).join('') : '<div class="py-10 text-center opacity-20 text-xs">วันนี้ยังไม่มีรายการ</div>';
+            </div>`).join('');
     }
 }
 
-// หน้าสถิติ (กราฟแท่ง)
 function renderStats() {
     const month = document.getElementById('monthPicker').value;
     const filtered = transactions.filter(t => t.date.startsWith(month));
-
     const inc = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
     const exp = filtered.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
@@ -207,7 +197,6 @@ function renderStats() {
     }
 }
 
-// สลับหน้าแอป
 function showPage(id, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -217,37 +206,27 @@ function showPage(id, el) {
     if (id === 'page-stats') renderStats();
 }
 
-// ฟังก์ชันลบ (ใช้ SweetAlert2 ยืนยัน)
 function deleteItem(id) {
     Swal.fire({
         title: 'ลบรายการนี้?',
-        text: "ข้อมูลจะถูกลบออกจากระบบถาวร",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#f43f5e',
-        cancelButtonColor: '#94a3b8',
         confirmButtonText: 'ลบเลย',
         cancelButtonText: 'ยกเลิก',
         background: document.body.classList.contains('dark') ? '#111' : '#fff',
         color: document.body.classList.contains('dark') ? '#fff' : '#000'
-    }).then((result) => {
-        if (result.isConfirmed) {
+    }).then(r => {
+        if (r.isConfirmed) {
             db.ref('money_flow/' + id).remove();
-            Swal.fire({
-                title: 'ลบแล้ว!',
-                icon: 'success',
-                timer: 800,
-                showConfirmButton: false
-            });
+            Swal.fire({ title: 'ลบเรียบร้อย', icon: 'success', timer: 800, showConfirmButton: false });
         }
     });
 }
 
-// ฟังก์ชันแก้ไข
 function editItem(id) {
     const t = transactions.find(x => x.id == id);
     if (!t) return;
-
     showPage('page-add', document.querySelector('nav button:first-child'));
     document.getElementById('editId').value = t.id;
     document.getElementById('amountInput').value = Math.abs(t.amount);
@@ -258,19 +237,16 @@ function editItem(id) {
 
 // --- 4. Initialization ---
 
-// เติมหมวดหมู่ใน Select
 const catSelect = document.getElementById('categorySelect');
 if (catSelect) {
     catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
-// ตั้งค่าเดือนปัจจุบัน
 const monthPicker = document.getElementById('monthPicker');
 if (monthPicker) {
     monthPicker.value = new Date().toISOString().slice(0, 7);
 }
 
-// โหลด Theme และค่าเริ่มต้น
 if (localStorage.getItem('theme') === 'dark') toggleDarkMode();
 setType('expense');
 
