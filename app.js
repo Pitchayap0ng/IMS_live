@@ -18,8 +18,12 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// เปิดระบบ Sync ข้อมูลเบื้องหลังเพื่อให้ใช้งาน Offline ได้ดีขึ้น
+db.ref('money_flow').keepSynced(true);
+
 // --- 2. Core Logic ---
 
+// ฟังข้อมูล Real-time
 db.ref('money_flow').on('value', snap => {
     const data = snap.val();
     transactions = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
@@ -27,14 +31,15 @@ db.ref('money_flow').on('value', snap => {
     updateUI();
 });
 
-async function saveTransaction() {
+// ฟังก์ชันบันทึก (ปรับปรุงใหม่ให้รองรับ Offline)
+function saveTransaction() {
     const amt = document.getElementById('amountInput');
     const note = document.getElementById('noteInput');
     const cat = document.getElementById('categorySelect');
     const editId = document.getElementById('editId').value;
 
     if (!amt.value || parseFloat(amt.value) <= 0) {
-        return Swal.fire({ title: 'กรุณากรอกจำนวนเงิน', icon: 'warning', confirmButtonColor: '#6366f1' });
+        return Swal.fire({ title: 'กรุณากรอกจำนวนเงิน', icon: 'warning' });
     }
 
     const data = {
@@ -45,14 +50,28 @@ async function saveTransaction() {
     };
 
     try {
+        // ไม่ใช้ await เพื่อให้โค้ดทำงานต่อไปได้ทันทีแม้ไม่มีเน็ตตอบกลับจาก Server
         if (editId) {
-            await db.ref('money_flow/' + editId).update(data);
+            db.ref('money_flow/' + editId).update(data);
         } else {
-            await db.ref('money_flow').push(data);
+            db.ref('money_flow').push(data);
         }
-        Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1000, showConfirmButton: false });
-        amt.value = ''; note.value = ''; document.getElementById('editId').value = '';
+
+        // แจ้งเตือนผู้ใช้ (ถ้าไม่มีเน็ต Firebase จะเก็บเข้าคิวไว้ในเครื่องให้เอง)
+        Swal.fire({
+            title: navigator.onLine ? 'บันทึกสำเร็จ' : 'บันทึกไว้ในเครื่องแล้ว (Offline)',
+            icon: 'success',
+            timer: 1000,
+            showConfirmButton: false
+        });
+
+        // ล้างค่าในฟอร์ม
+        amt.value = '';
+        note.value = '';
+        document.getElementById('editId').value = '';
+
     } catch (e) {
+        console.error("Save error:", e);
         Swal.fire('Error', 'เกิดข้อผิดพลาด', 'error');
     }
 }
@@ -100,11 +119,11 @@ function renderStats() {
     if (summary) {
         summary.innerHTML = `
             <div class="p-5 rounded-3xl bg-emerald-50 dark:bg-emerald-900/10 text-center border border-emerald-100 dark:border-zinc-800/50">
-                <p class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Income</p>
+                <p class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">รายรับ</p>
                 <p class="text-xl font-black text-emerald-500">${inc.toLocaleString()}</p>
             </div>
             <div class="p-5 rounded-3xl bg-rose-50 dark:bg-rose-900/10 text-center border border-rose-100 dark:border-zinc-800/50">
-                <p class="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest">Expense</p>
+                <p class="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest">รายจ่าย</p>
                 <p class="text-xl font-black text-rose-500">${exp.toLocaleString()}</p>
             </div>`;
     }
@@ -156,7 +175,7 @@ function showPage(id, el) {
     document.getElementById(id).classList.add('active');
     document.querySelectorAll('nav button').forEach(b => b.classList.add('opacity-50'));
     el.classList.remove('opacity-50');
-    updateUI(); // แก้จุดนี้: เรียกให้วาดข้อมูลใหม่ทุกครั้งที่สลับหน้า
+    updateUI();
 }
 
 function setType(type) {
@@ -201,6 +220,7 @@ window.onload = () => {
     if (catSel) catSel.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
     const monPick = document.getElementById('monthPicker');
     if (monPick) monPick.value = new Date().toISOString().slice(0, 7);
+
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
         document.body.classList.add('dark');
