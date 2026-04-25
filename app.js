@@ -18,7 +18,7 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// เปิดระบบ Sync ข้อมูลเบื้องหลังเพื่อให้ใช้งาน Offline ได้ดีขึ้น
+// เปิดระบบดึงข้อมูลมาเก็บไว้ในเครื่องเบื้องหลัง
 db.ref('money_flow').keepSynced(true);
 
 // --- 2. Core Logic ---
@@ -31,7 +31,6 @@ db.ref('money_flow').on('value', snap => {
     updateUI();
 });
 
-// ฟังก์ชันบันทึก (ปรับปรุงใหม่ให้รองรับ Offline)
 function saveTransaction() {
     const amt = document.getElementById('amountInput');
     const note = document.getElementById('noteInput');
@@ -50,40 +49,50 @@ function saveTransaction() {
     };
 
     try {
-        // ไม่ใช้ await เพื่อให้โค้ดทำงานต่อไปได้ทันทีแม้ไม่มีเน็ตตอบกลับจาก Server
+        // บันทึกลง Local Database ทันที (Firebase จะส่งขึ้น Cloud เมื่อมีเน็ต)
         if (editId) {
             db.ref('money_flow/' + editId).update(data);
         } else {
             db.ref('money_flow').push(data);
         }
 
-        // แจ้งเตือนผู้ใช้ (ถ้าไม่มีเน็ต Firebase จะเก็บเข้าคิวไว้ในเครื่องให้เอง)
-        Swal.fire({
-            title: navigator.onLine ? 'บันทึกสำเร็จ' : 'บันทึกไว้ในเครื่องแล้ว (Offline)',
-            icon: 'success',
-            timer: 1000,
-            showConfirmButton: false
+        Swal.fire({ 
+            title: navigator.onLine ? 'บันทึกสำเร็จ' : 'บันทึกไว้ในเครื่องแล้ว', 
+            icon: 'success', 
+            timer: 1000, 
+            showConfirmButton: false 
         });
 
-        // ล้างค่าในฟอร์ม
-        amt.value = '';
-        note.value = '';
+        amt.value = ''; 
+        note.value = ''; 
         document.getElementById('editId').value = '';
-
+        
     } catch (e) {
-        console.error("Save error:", e);
-        Swal.fire('Error', 'เกิดข้อผิดพลาด', 'error');
+        console.error(e);
     }
 }
 
 function updateUI() {
+    // คำนวณยอดเงินจากตัวแปร transactions ที่มีข้อมูลล่าสุดในเครื่อง
     const total = transactions.reduce((s, t) => s + t.amount, 0);
     const balanceDisplay = document.getElementById('mainBalance');
-    if (balanceDisplay) balanceDisplay.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (balanceDisplay) {
+        balanceDisplay.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    }
 
+    // วาดหน้าจอตามหน้าที่เปิดอยู่
     const activePage = document.querySelector('.page.active')?.id;
+    if (activePage === 'page-add') renderCategories(); // วาด Categories ทุกครั้งที่อยู่หน้านี้
     if (activePage === 'page-daily') renderDaily();
     if (activePage === 'page-stats') renderStats();
+}
+
+// ฟังก์ชันวาดหมวดหมู่ (เพื่อแก้ปัญหา Categories หายตอน Offline)
+function renderCategories() {
+    const catSel = document.getElementById('categorySelect');
+    if (catSel && catSel.innerHTML === "") { // วาดเฉพาะถ้ายังไม่มีข้อมูล
+        catSel.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
 }
 
 function renderDaily() {
@@ -110,7 +119,9 @@ function renderDaily() {
 }
 
 function renderStats() {
-    const month = document.getElementById('monthPicker').value;
+    const monthPicker = document.getElementById('monthPicker');
+    if (!monthPicker) return;
+    const month = monthPicker.value;
     const filtered = transactions.filter(t => t.date.startsWith(month));
     const inc = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
     const exp = filtered.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
@@ -161,20 +172,20 @@ function renderStats() {
     }
 }
 
+function showPage(id, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('nav button').forEach(b => b.classList.add('opacity-50'));
+    el.classList.remove('opacity-50');
+    updateUI();
+}
+
 function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark');
     document.body.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     const icon = document.getElementById('darkIcon');
     if (icon) icon.className = isDark ? 'fa-solid fa-sun text-yellow-400 text-xl' : 'fa-solid fa-moon text-slate-600 text-xl';
-    updateUI();
-}
-
-function showPage(id, el) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    document.querySelectorAll('nav button').forEach(b => b.classList.add('opacity-50'));
-    el.classList.remove('opacity-50');
     updateUI();
 }
 
@@ -216,11 +227,10 @@ function deleteItem(id) {
 }
 
 window.onload = () => {
-    const catSel = document.getElementById('categorySelect');
-    if (catSel) catSel.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    renderCategories(); // วาดหมวดหมู่ทันทีเมื่อโหลด
     const monPick = document.getElementById('monthPicker');
     if (monPick) monPick.value = new Date().toISOString().slice(0, 7);
-
+    
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
         document.body.classList.add('dark');
@@ -228,4 +238,5 @@ window.onload = () => {
         if (icon) icon.className = 'fa-solid fa-sun text-yellow-400 text-xl';
     }
     setType('expense');
+    updateUI();
 };
